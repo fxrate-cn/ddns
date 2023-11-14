@@ -1,13 +1,17 @@
 package main
+
 import (
-	"io"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	ip:= getIP()
+	ip := getIP()
 	fmt.Println(ip)
 	setDNS()
 }
@@ -31,11 +35,23 @@ func getIP() string {
 	}
 }
 
-func setDNS()  {
-	zoneId := ""
-	//accountId := ""
-	//recordId := ""
-	apiToken  := ""
+// use godot package to load/read the .env file and
+// return the value of the key
+func goDotEnvVariable(key string) string {
+
+	// load .env file
+	err := godotenv.Load(".env")
+
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	return os.Getenv(key)
+}
+
+func setDNS() {
+	zoneId := goDotEnvVariable("zoneId")
+	apiToken := goDotEnvVariable("apiToken")
 	//spfRecordId := ""
 	//apiKey := ""
 	//userEmail := ""
@@ -48,7 +64,7 @@ func setDNS()  {
 	if err != nil {
 		log.Fatal(err)
 	}
-	req.Header.Set("Authorization", "Bearer " + apiToken)
+	req.Header.Set("Authorization", "Bearer "+apiToken)
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
