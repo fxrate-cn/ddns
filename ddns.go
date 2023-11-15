@@ -15,40 +15,23 @@ import (
 
 func main() {
 	ip := getIP()
-	fmt.Println(ip)
 	setDNS(ip)
 }
 
 func getIP() string {
-	resp, err := http.Get("http://checkip.amazonaws.com")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusOK {
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-		bodyString := string(bodyBytes)
-		log.Println(bodyString)
-		return bodyString
-	} else {
-		return ""
-	}
+	bodyBytes := request("GET", "http://checkip.amazonaws.com", nil)
+	bodyString := string(bodyBytes)
+	return bodyString
 }
 
 // use godot package to load/read the .env file and
 // return the value of the key
 func goDotEnvVariable(key string) string {
-
 	// load .env file
 	err := godotenv.Load(".env")
-
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
-
 	return os.Getenv(key)
 }
 
@@ -116,7 +99,7 @@ func setDNS(ip string) {
 	record := &Record{Name: name, Content: ip, Proxied: true}
 	jsonValue, _ := json.Marshal(record)
 	updateResult := request("PATCH", updateApi, bytes.NewBuffer(jsonValue))
-	fmt.Println(string(updateResult))
+	log.Print(string(updateResult))
 }
 
 func request(method string, url string, reader io.Reader) []byte {
