@@ -9,13 +9,14 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 )
 
 func main() {
 	ip := getIP()
-	fmt.Println(ip)
+	// fmt.Println(ip)
 	setDNS(ip)
 }
 
@@ -31,7 +32,7 @@ func getIP() string {
 			log.Fatal(err)
 		}
 		bodyString := string(bodyBytes)
-		log.Println(bodyString)
+//		log.Println(bodyString)
 		return bodyString
 	} else {
 		return ""
@@ -42,8 +43,14 @@ func getIP() string {
 // return the value of the key
 func goDotEnvVariable(key string) string {
 
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	exPath := filepath.Dir(ex)
+	// fmt.Println(exPath)
 	// load .env file
-	err := godotenv.Load(".env")
+	err = godotenv.Load(exPath + "/.env")
 
 	if err != nil {
 		log.Fatalf("Error loading .env file")
@@ -143,11 +150,11 @@ func setDNS(ip string) {
 		resp, err := client.Do(req)
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
-			bodyBytes, err := io.ReadAll(resp.Body)
+			_, err := io.ReadAll(resp.Body)
 			if err != nil {
 				log.Fatal(err)
 			}
-			fmt.Println(string(bodyBytes))
+			// fmt.Println(string(bodyBytes))
 		}
 
 	}
