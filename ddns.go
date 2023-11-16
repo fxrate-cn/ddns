@@ -16,33 +16,18 @@ import (
 
 func main() {
 	ip := getIP()
-	// fmt.Println(ip)
 	setDNS(ip)
 }
 
 func getIP() string {
-	resp, err := http.Get("http://checkip.amazonaws.com")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusOK {
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-		bodyString := string(bodyBytes)
-//		log.Println(bodyString)
-		return bodyString
-	} else {
-		return ""
-	}
+	bodyBytes := request("GET", "http://checkip.amazonaws.com", nil)
+	bodyString := string(bodyBytes)
+	return bodyString
 }
 
 // use godot package to load/read the .env file and
 // return the value of the key
 func goDotEnvVariable(key string) string {
-
 	ex, err := os.Executable()
 	if err != nil {
 		panic(err)
@@ -55,7 +40,6 @@ func goDotEnvVariable(key string) string {
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
-
 	return os.Getenv(key)
 }
 
@@ -104,11 +88,31 @@ type Record struct {
 
 func setDNS(ip string) {
 	zoneId := goDotEnvVariable("zoneId")
-	apiToken := goDotEnvVariable("apiToken")
 	name := goDotEnvVariable("name")
 	baseUrl := "https://api.cloudflare.com/client/v4/zones/"
 	dnsRecordsApi := fmt.Sprint(baseUrl, zoneId, "/dns_records")
-	req, err := http.NewRequest("GET", dnsRecordsApi, nil)
+	bodyBytes := request("GET", dnsRecordsApi, nil)
+	var result DNSRecords
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
+		fmt.Println("Can not unmarshal JSON")
+	}
+	var id = ""
+	// Loop through the data and find the record id of domain name
+	for _, rec := range result.Result {
+		if rec.Name == name {
+			id = rec.ID
+		}
+	}
+	updateApi := dnsRecordsApi + "/" + id
+	record := &Record{Name: name, Content: ip, Proxied: true}
+	jsonValue, _ := json.Marshal(record)
+	updateResult := request("PATCH", updateApi, bytes.NewBuffer(jsonValue))
+	log.Print(string(updateResult))
+}
+
+func request(method string, url string, reader io.Reader) []byte {
+	apiToken := goDotEnvVariable("apiToken")
+	req, err := http.NewRequest(method, url, reader)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -116,46 +120,16 @@ func setDNS(ip string) {
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		var result DNSRecords
-		if err := json.Unmarshal(bodyBytes, &result); err != nil { // Parse []byte to the go struct pointer
-			fmt.Println("Can not unmarshal JSON")
-		}
-
-		var id = ""
-		// Loop through the data node for the FirstName
-		for _, rec := range result.Result {
-			if rec.Name == name {
-				id = rec.ID
-			}
-		}
-		updateApi := dnsRecordsApi + "/" + id
-		record := Record{}
-		record.Name = name
-		record.Content = ip
-		record.Proxied = true
-		jsonValue, _ := json.Marshal(record)
-		req, err := http.NewRequest("PATCH", updateApi, bytes.NewBuffer(jsonValue))
-		if err != nil {
-			log.Fatal(err)
-		}
-		req.Header.Set("Authorization", "Bearer "+apiToken)
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := client.Do(req)
-		defer resp.Body.Close()
-		if resp.StatusCode == http.StatusOK {
-			_, err := io.ReadAll(resp.Body)
-			if err != nil {
-				log.Fatal(err)
-			}
-			// fmt.Println(string(bodyBytes))
-		}
-
+		return bodyBytes
 	}
+	return nil
 }
